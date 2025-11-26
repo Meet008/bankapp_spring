@@ -12,6 +12,10 @@ import java.util.List;
 public class UserController {
     private final UserService userService;
 
+    @GetMapping("/health")
+    public String health() {
+        return "API is working!";
+    }
     @GetMapping
     public List<Users> getAllUsers() {
         return userService.getAllUsers();
