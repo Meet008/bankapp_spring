@@ -4,6 +4,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 @Data // Lombok: getters, setters, toString, equals, hashCode
 @NoArgsConstructor // Lombok: no-args constructor
@@ -14,7 +15,13 @@ public class Users {
     @Id
     private String id;
     private String name;
+
+    @Indexed(unique = true)
     private String email;
-    private String password; // Store hashed for security!
+
+    private String password;
     private String phone;
+    private String address;
+    private String avatarUrl;
+    private Role role; // ENUM: ADMIN or CUSTOMER
 }

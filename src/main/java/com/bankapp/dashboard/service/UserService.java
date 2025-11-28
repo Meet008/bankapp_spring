@@ -1,9 +1,10 @@
 package com.bankapp.dashboard.service;
 
+import com.bankapp.dashboard.model.Role;
+import com.bankapp.dashboard.model.Users;
+import com.bankapp.dashboard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.bankapp.dashboard.repository.UserRepository;
-import com.bankapp.dashboard.model.Users;
 
 import java.util.List;
 
@@ -20,7 +21,29 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public Users getUserByEmail(String email) {
+    public Users findByEmail(String email) {
         return userRepository.findByEmail(email);
+    }
+
+    public List<Users> findByRole(Role role) {
+        return userRepository.findByRole(role);
+    }
+
+
+    public Users getById(String id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    public boolean deleteUserById(String id) {
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+
+    // Delete all users with a given email, returns count
+    public long deleteAllByEmail(String email) {
+        return userRepository.deleteByEmail(email);
     }
 }
