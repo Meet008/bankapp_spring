@@ -13,9 +13,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Accounts {
     @Id
     private String id;
+    private String userId; // reference to User
     private String accountNumber;
     private AccountType type; // e.g. SAVINGS, CHECKING, CREDIT
     private Double balance;
-    private String userId; // reference to User
     private AccountStatus status; // ACTIVE, PENDING
 }
