@@ -65,6 +65,12 @@ public class UserController {
                 .body(new ApiResponse<>("User deleted successfully", null));
     }
 
+    @PutMapping("/{id}")
+    public Users updateUser(@PathVariable String id, @RequestBody Users user) {
+        return userService.updateUser(id, user);
+    }
+
+
     @DeleteMapping("/by-email/{email}")
     public ResponseEntity<ApiResponse<Void>> deleteUsersByEmail(@PathVariable String email) {
         long deletedCount = userService.deleteAllByEmail(email);

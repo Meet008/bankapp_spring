@@ -16,11 +16,13 @@ import java.util.Map;
 public class AnalyticsReport {
     @Id
     private String id;
-    private String userId;
-    private Double totalSpending;
-    private String highestCategory;
-    private Double monthlyAverage;
+    private String userId;  // which user's dashboard
+    private Double totalSpending; //this month total
+    private String highestCategory; //e.g"Shopping"
+    private Double monthlyAverage; //avg spend
+    // category -> amount (for pie chart)
     private Map<String, Double> categoryWiseSpending; // e.g. {"Shopping": 5000}
+    // list for line chart: month vs amount
     private List<MonthlyTrend> monthlyTrend;
 }
 

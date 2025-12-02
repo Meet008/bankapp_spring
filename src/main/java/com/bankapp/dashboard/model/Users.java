@@ -1,4 +1,6 @@
 package com.bankapp.dashboard.model;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -18,7 +20,8 @@ public class Users {
 
     @Indexed(unique = true)
     private String email;
-
+    
+    @JsonIgnore
     private String password;
     private String phone;
     private String address;
