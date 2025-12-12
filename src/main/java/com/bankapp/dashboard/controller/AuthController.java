@@ -32,7 +32,7 @@ public class AuthController {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("Invalid email or password");
+                    .body("Invalid password");
         }
 
         String token = jwtService.generateToken(
