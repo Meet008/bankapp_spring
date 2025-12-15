@@ -66,8 +66,20 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public Users updateUser(@PathVariable String id, @RequestBody Users user) {
-        return userService.updateUser(id, user);
+    public ResponseEntity<ApiResponse<Users>> updateUser(
+            @PathVariable String id,
+            @RequestBody Users user) {
+
+        Users updated = userService.updateUser(id, user);
+        if (updated == null) {
+            return ResponseEntity
+                    .status(404)
+                    .body(new ApiResponse<>("User not found", null));
+        }
+
+        return ResponseEntity.ok(
+                new ApiResponse<>("User updated successfully", updated)
+        );
     }
 
 
