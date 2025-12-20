@@ -1,15 +1,22 @@
 package com.bankapp.dashboard.controller;
 
+import com.bankapp.dashboard.dto.AddMoneyRequest;
 import com.bankapp.dashboard.dto.ApiResponse;
-import com.bankapp.dashboard.model.Transactions;
+import com.bankapp.dashboard.dto.PayBillRequest;
+import com.bankapp.dashboard.dto.SendMoneyRequest;
+import com.bankapp.dashboard.model.*;
 import com.bankapp.dashboard.service.TransactionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -18,81 +25,91 @@ public class TransactionController {
 
     private final TransactionService transactionService;
 
-    // Health check
-    @GetMapping("/health")
-    public ResponseEntity<ApiResponse<String>> health() {
-        ApiResponse<String> body = new ApiResponse<>("Transactions API is working!", "OK");
-        return ResponseEntity.ok(body);
+    // send enums to frontend for dropdowns
+    @GetMapping("/meta")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> meta() {
+        Map<String, Object> data = Map.of(
+                "types", TransactionType.values(),
+                "categories", TransactionCategory.values()
+        );
+        return ResponseEntity.ok(new ApiResponse<>("Transaction meta", data));
     }
 
-    // Get all transactions
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<Transactions>>> getAll() {
-        List<Transactions> list = transactionService.getAll();
-        String message = list.isEmpty()
-                ? "No transactions found"
-                : "Transactions fetched successfully";
-        ApiResponse<List<Transactions>> body = new ApiResponse<>(message, list);
-        return ResponseEntity.ok(body);
+    // list current user's transactions with filters (for your screen)
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<List<Transactions>>> getMyTransactions(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) TransactionCategory category,
+            @RequestParam(required = false) Double minAmount,
+            @RequestParam(required = false) Double maxAmount
+    ) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users current = (Users) auth.getPrincipal();
+
+        List<Transactions> list = transactionService.searchForUser(
+                current.getId(), date, category, minAmount, maxAmount
+        );
+
+        String msg = list.isEmpty() ? "No transactions found" : "Transactions fetched successfully";
+        return ResponseEntity.ok(new ApiResponse<>(msg, list));
     }
 
-    // Create a new transaction
-    @PostMapping
-    public ResponseEntity<ApiResponse<Transactions>> create(@RequestBody Transactions tx) {
-        Transactions created = transactionService.create(tx);
-        ApiResponse<Transactions> body =
-                new ApiResponse<>("Transaction created successfully", created);
-        return ResponseEntity.status(HttpStatus.CREATED).body(body);
+    // ===== commands =====
+
+    @PostMapping("/add-money")
+    public ResponseEntity<ApiResponse<Transactions>> addMoney(@RequestBody AddMoneyRequest req) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users current = (Users) auth.getPrincipal();
+
+        try {
+            Transactions tx = transactionService.addMoney(current.getId(), req);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>("Money added successfully", tx));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(ex.getMessage(), null));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Server Error", null));
+        }
     }
 
-    // Get transactions for a user
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<ApiResponse<List<Transactions>>> getByUser(@PathVariable String userId) {
-        List<Transactions> list = transactionService.getByUserId(userId);
-        String message = list.isEmpty()
-                ? "No transactions found for user"
-                : "User transactions fetched successfully";
-        ApiResponse<List<Transactions>> body = new ApiResponse<>(message, list);
-        return ResponseEntity.ok(body);
+    @PostMapping("/send-money")
+    public ResponseEntity<ApiResponse<Transactions>> sendMoney(@RequestBody SendMoneyRequest req) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users current = (Users) auth.getPrincipal();
+
+        try {
+            Transactions tx = transactionService.sendMoney(current.getId(), req);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>("Money sent successfully", tx));
+        } catch (IllegalArgumentException ex) {
+            // for things like insufficient balance, invalid recipient, etc.
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(ex.getMessage(), null));
+        } catch (Exception ex) {
+            // optional: log ex
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Server Error", null));
+        }
     }
 
-    // Get transactions for an account
-    @GetMapping("/account/{accountId}")
-    public ResponseEntity<ApiResponse<List<Transactions>>> getByAccount(@PathVariable String accountId) {
-        List<Transactions> list = transactionService.getByAccountId(accountId);
-        String message = list.isEmpty()
-                ? "No transactions found for account"
-                : "Account transactions fetched successfully";
-        ApiResponse<List<Transactions>> body = new ApiResponse<>(message, list);
-        return ResponseEntity.ok(body);
-    }
+    @PostMapping("/pay-bill")
+    public ResponseEntity<ApiResponse<Transactions>> payBill(@RequestBody PayBillRequest req) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users current = (Users) auth.getPrincipal();
 
-    // Get transactions by category
-    @GetMapping("/category/{category}")
-    public ResponseEntity<ApiResponse<List<Transactions>>> getByCategory(@PathVariable String category) {
-        List<Transactions> list = transactionService.getByCategory(category);
-        String message = list.isEmpty()
-                ? "No transactions found for category " + category
-                : "Transactions for category " + category + " fetched successfully";
-        ApiResponse<List<Transactions>> body = new ApiResponse<>(message, list);
-        return ResponseEntity.ok(body);
-    }
-
-    // Get transactions between two dates (yyyy-MM-dd)
-    @GetMapping("/date-range")
-    public ResponseEntity<ApiResponse<List<Transactions>>> getByDateRange(
-            @RequestParam("start") String start,
-            @RequestParam("end") String end) {
-
-        LocalDate s = LocalDate.parse(start);
-        LocalDate e = LocalDate.parse(end);
-        List<Transactions> list = transactionService.getByDateRange(s, e);
-
-        String message = list.isEmpty()
-                ? "No transactions found in given date range"
-                : "Transactions in date range fetched successfully";
-
-        ApiResponse<List<Transactions>> body = new ApiResponse<>(message, list);
-        return ResponseEntity.ok(body);
+        try {
+            Transactions tx = transactionService.payBill(current.getId(), req);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>("Bill paid successfully", tx));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(ex.getMessage(), null));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Server Error", null));
+        }
     }
 }

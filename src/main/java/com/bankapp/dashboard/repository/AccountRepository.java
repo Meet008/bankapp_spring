@@ -10,4 +10,6 @@ public interface AccountRepository extends MongoRepository<Accounts, String> {
     List<Accounts> findByUserId(String userId);
 
     List<Accounts> findByUserIdAndType(String userId, AccountType type);
+
+    List<Accounts> findByAccountNumber(String accountNumber);
 }

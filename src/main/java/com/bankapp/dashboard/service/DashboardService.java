@@ -3,6 +3,7 @@ package com.bankapp.dashboard.service;
 import com.bankapp.dashboard.dto.DashboardSummary;
 import com.bankapp.dashboard.model.AccountType;
 import com.bankapp.dashboard.model.Accounts;
+import com.bankapp.dashboard.model.TransactionType;
 import com.bankapp.dashboard.model.Transactions;
 import com.bankapp.dashboard.repository.AccountRepository;
 import com.bankapp.dashboard.repository.TransactionRepository;
@@ -43,7 +44,7 @@ public class DashboardService {
 
         double expenses = monthTx.stream()
                 .filter(tx -> userId.equals(tx.getUserId()))
-                .filter(tx -> "DEBIT".equalsIgnoreCase(tx.getType()))
+                .filter(tx -> tx.getType() == TransactionType.DEBIT)
                 .mapToDouble(tx -> tx.getAmount() != null ? tx.getAmount() : 0.0)
                 .sum();
 

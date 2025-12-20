@@ -18,14 +18,12 @@ public class UserService {
     private final TransactionRepository transactionRepository;
     private final PaymentRepository paymentRepository;
     private final AnalyticsReportRepository analyticsReportRepository;
+    private final AccountService accountService;   // used to create default accounts
+
+    // ===== READ =====
 
     public List<Users> getAllUsers() {
         return userRepository.findAll();
-    }
-
-    public Users createUser(Users user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
     }
 
     public Users findByEmail(String email) {
@@ -39,6 +37,63 @@ public class UserService {
     public Users getById(String id) {
         return userRepository.findById(id).orElse(null);
     }
+
+    // ===== CREATE =====
+
+    // Simple create – kept for internal/legacy usage if needed
+    public Users createUser(Users user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (user.getRole() == null) {
+            user.setRole(Role.CUSTOMER);
+        }
+        return userRepository.save(user);
+    }
+
+    // Main method: admin create or registration, with default accounts for CUSTOMER
+    public Users createUserWithDefaults(Users user) {
+        // encode password
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        // default role if not set
+        if (user.getRole() == null) {
+            user.setRole(Role.CUSTOMER);
+        }
+
+        // save user
+        Users saved = userRepository.save(user);
+
+        // if CUSTOMER, create default accounts + welcome transaction
+        if (saved.getRole() == Role.CUSTOMER) {
+            accountService.createDefaultAccountsForUser(saved.getId());
+        }
+
+        return saved;
+    }
+
+    // ===== UPDATE =====
+
+    public Users updateUser(String id, Users updated) {
+        return userRepository.findById(id)
+                .map(existing -> {
+                    if (updated.getName() != null) {
+                        existing.setName(updated.getName());
+                    }
+                    if (updated.getPhone() != null) {
+                        existing.setPhone(updated.getPhone());
+                    }
+                    if (updated.getAddress() != null) {
+                        existing.setAddress(updated.getAddress());
+                    }
+                    if (updated.getAvatarUrl() != null) {
+                        existing.setAvatarUrl(updated.getAvatarUrl());
+                    }
+                    // do NOT update password or role here
+                    return userRepository.save(existing);
+                })
+                .orElse(null);
+    }
+
+    // ===== DELETE =====
 
     // Cascade delete: user + all related data
     public boolean deleteUserById(String id) {
@@ -61,7 +116,7 @@ public class UserService {
                 transactionRepository.findByUserId(userId)
         );
 
-        // Extra safety: delete by accountId too
+        // Extra safety: transactions by accountId too
         for (String accId : accountIds) {
             transactionRepository.deleteAll(
                     transactionRepository.findByAccountId(accId)
@@ -81,18 +136,6 @@ public class UserService {
         // 5) Finally delete user
         userRepository.deleteById(id);
         return true;
-    }
-
-    public Users updateUser(String id, Users updated) {
-        return userRepository.findById(id)
-                .map(existing -> {
-                    existing.setName(updated.getName());
-                    existing.setPhone(updated.getPhone());
-                    existing.setAddress(updated.getAddress());
-                    existing.setAvatarUrl(updated.getAvatarUrl());
-                    return userRepository.save(existing);
-                })
-                .orElse(null);
     }
 
     // Delete all users with a given email, returns count

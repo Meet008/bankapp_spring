@@ -1,10 +1,16 @@
 package com.bankapp.dashboard.controller;
 
 import com.bankapp.dashboard.dto.ApiResponse;
+import com.bankapp.dashboard.dto.UserBasicDto;
+import com.bankapp.dashboard.model.Role;
 import com.bankapp.dashboard.model.Users;
 import com.bankapp.dashboard.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,13 +22,34 @@ public class UserController {
 
     private final UserService userService;
 
-    @GetMapping("/health")
-    public ResponseEntity<ApiResponse<String>> health() {
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserBasicDto>> getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users current = (Users) auth.getPrincipal(); // JwtAuthFilter sets principal = Users
+
+        UserBasicDto dto = new UserBasicDto(
+                current.getId(),
+                current.getName(),
+                current.getEmail(),
+                current.getRole().name(),
+                current.getAvatarUrl()
+        );
+
         return ResponseEntity.ok(
-                new ApiResponse<>("User API is healthy", "OK")
+                new ApiResponse<>("Current user fetched successfully", dto)
         );
     }
 
+    @GetMapping("/roles")
+    public ResponseEntity<ApiResponse<Role[]>> getRoles() {
+        Role[] roles = Role.values();
+        return ResponseEntity.ok(
+                new ApiResponse<>("Roles fetched successfully", roles)
+        );
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<Users>>> getAllUsers() {
         List<Users> users = userService.getAllUsers();
@@ -31,62 +58,64 @@ public class UserController {
         );
     }
 
+    /**
+     * Generic create endpoint.
+     * - If role is null, it will default to CUSTOMER and create default accounts.
+     * - If role is ADMIN, it will just create an admin with encoded password.
+     */
     @PostMapping
-    public ResponseEntity<ApiResponse<Users>> createUser(@RequestBody Users user) {
-        Users saved = userService.createUser(user);
-        return ResponseEntity
-                .status(201)
-                .body(new ApiResponse<>("User created successfully", saved));
-    }
+    public ResponseEntity<ApiResponse<UserBasicDto>> createUser(@RequestBody Users user) {
+        Users saved = userService.createUserWithDefaults(user);
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Users>> getUserById(@PathVariable String id) {
-        Users user = userService.getById(id);
-        if (user == null) {
-            return ResponseEntity
-                    .status(404)
-                    .body(new ApiResponse<>("User not found", null));
-        }
-        return ResponseEntity.ok(
-                new ApiResponse<>("User fetched successfully", user)
+        UserBasicDto dto = new UserBasicDto(
+                saved.getId(),
+                saved.getName(),
+                saved.getEmail(),
+                saved.getRole().name(),
+                saved.getAvatarUrl()
         );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new ApiResponse<>("User created successfully", dto));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String id) {
         boolean deleted = userService.deleteUserById(id);
         if (!deleted) {
             return ResponseEntity
-                    .status(404)
+                    .status(HttpStatus.NOT_FOUND)
                     .body(new ApiResponse<>("User not found", null));
         }
+        // 204 should not normally include a body, but you were returning ApiResponse; here is a cleaner 200.
         return ResponseEntity
-                .status(204)
-                .body(new ApiResponse<>("User deleted successfully", null));
+                .ok(new ApiResponse<>("User deleted successfully", null));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Users>> updateUser(
-            @PathVariable String id,
-            @RequestBody Users user) {
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<UserBasicDto>> updateCurrentUser(@RequestBody Users user) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users current = (Users) auth.getPrincipal();
 
-        Users updated = userService.updateUser(id, user);
+        Users updated = userService.updateUser(current.getId(), user);
         if (updated == null) {
             return ResponseEntity
-                    .status(404)
+                    .status(HttpStatus.NOT_FOUND)
                     .body(new ApiResponse<>("User not found", null));
         }
 
-        return ResponseEntity.ok(
-                new ApiResponse<>("User updated successfully", updated)
+        UserBasicDto dto = new UserBasicDto(
+                updated.getId(),
+                updated.getName(),
+                updated.getEmail(),
+                updated.getRole().name(),
+                updated.getAvatarUrl()
         );
-    }
 
-
-    @DeleteMapping("/by-email/{email}")
-    public ResponseEntity<ApiResponse<Void>> deleteUsersByEmail(@PathVariable String email) {
-        long deletedCount = userService.deleteAllByEmail(email);
-        String msg = "Deleted " + deletedCount + " user(s) with email " + email;
-        return ResponseEntity.ok(new ApiResponse<>(msg, null));
+        return ResponseEntity.ok(
+                new ApiResponse<>("User updated successfully", dto)
+        );
     }
 }

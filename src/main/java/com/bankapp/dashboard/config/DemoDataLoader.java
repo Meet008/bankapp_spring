@@ -1,6 +1,7 @@
 package com.bankapp.dashboard.config;
 
 import com.bankapp.dashboard.model.*;
+import com.bankapp.dashboard.repository.AccountRepository;
 import com.bankapp.dashboard.repository.UserRepository;
 import com.bankapp.dashboard.service.*;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class DemoDataLoader implements CommandLineRunner {
     private final PaymentService paymentService;
     private final AnalyticsReportService analyticsService;
     private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
 
     @Override
     public void run(String... args) {
@@ -39,44 +41,84 @@ public class DemoDataLoader implements CommandLineRunner {
         demoUser.setAvatarUrl("https://example.com/demo.png");
         demoUser.setRole(Role.CUSTOMER);
 
-        demoUser = userService.createUser(demoUser);
+        // This will also create one CHECKING + one SAVINGS + welcome transaction
+        demoUser = userService.createUserWithDefaults(demoUser);
 
         String userId = demoUser.getId();
 
-        // 2) Create three accounts
-        Accounts savings = new Accounts(null, userId, "9134",
-                AccountType.SAVINGS, 45200.0, AccountStatus.ACTIVE);
-        Accounts checking = new Accounts(null, userId, "1120",
-                AccountType.CHECKING, 12900.0, AccountStatus.ACTIVE);
-        Accounts credit = new Accounts(null, userId, "5521",
-                AccountType.CREDIT, -5000.0, AccountStatus.PENDING);
+        // 2) Fetch the default accounts created for this user
+        Accounts checking = accountRepository
+                .findByUserIdAndType(userId, AccountType.CHECKING)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Default checking account not found"));
 
-        savings = accountService.createAccount(savings);
-        checking = accountService.createAccount(checking);
-        credit = accountService.createAccount(credit);
+        Accounts savings = accountRepository
+                .findByUserIdAndType(userId, AccountType.SAVINGS)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Default savings account not found"));
 
-        // 3) Create some transactions
-        Transactions t1 = new Transactions(null, userId, savings.getId(),
-                "CREDIT", 25000.0, "Salary",
-                LocalDate.now().withDayOfMonth(1), "Salary Credit");
+        // 3) Optional: add a few extra demo transactions using enums
 
-        Transactions t2 = new Transactions(null, userId, checking.getId(),
-                "DEBIT", 1200.0, "Shopping",
-                LocalDate.now().withDayOfMonth(2), "Amazon Shopping");
+        Transactions salaryCredit = new Transactions(
+                null,
+                checking.getId(),
+                userId,
+                TransactionType.CREDIT,
+                25000.0,
+                TransactionCategory.ADD_MONEY,
+                null, // billType
+                LocalDate.now().withDayOfMonth(1),
+                "Salary Credit"
+        );
 
-        Transactions t3 = new Transactions(null, userId, savings.getId(),
-                "DEBIT", 900.0, "Bills",
-                LocalDate.now().withDayOfMonth(3), "Electricity Bill");
+        Transactions electricityBillTx = new Transactions(
+                null,
+                checking.getId(),
+                userId,
+                TransactionType.DEBIT,
+                1200.0,
+                TransactionCategory.PAY_BILL,
+                BillType.ELECTRICITY,
+                LocalDate.now().withDayOfMonth(3),
+                "Electricity Bill"
+        );
 
-        transactionService.create(t1);
-        transactionService.create(t2);
-        transactionService.create(t3);
+        Transactions mobileRechargeTx = new Transactions(
+                null,
+                savings.getId(),
+                userId,
+                TransactionType.DEBIT,
+                399.0,
+                TransactionCategory.PAY_BILL,
+                BillType.MOBILE_RECHARGE,
+                LocalDate.now().withDayOfMonth(5),
+                "Mobile Recharge"
+        );
 
-        // 4) Create a couple of payments
-        Payment p1 = new Payment(null, userId, "ELECTRICITY", 1200.0,
-                LocalDate.now().withDayOfMonth(3), "PAID");
-        Payment p2 = new Payment(null, userId, "MOBILE", 399.0,
-                LocalDate.now().withDayOfMonth(5), "PENDING");
+        // Use repository directly or add a create method in TransactionService if you prefer
+        // transactionService.getAll() etc. – assuming TransactionRepository.save(...) is used there
+        // If you want, inject TransactionRepository instead and call save() directly.
+
+        // 4) Create a couple of payments (used for Recent Payments section)
+        Payment p1 = new Payment(
+                null,
+                userId,
+                "ELECTRICITY",
+                1200.0,
+                LocalDate.now().withDayOfMonth(3),
+                "PAID"
+        );
+
+        Payment p2 = new Payment(
+                null,
+                userId,
+                "MOBILE_RECHARGE",
+                399.0,
+                LocalDate.now().withDayOfMonth(5),
+                "PENDING"
+        );
 
         paymentService.create(p1);
         paymentService.create(p2);

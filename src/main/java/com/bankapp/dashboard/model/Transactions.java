@@ -13,13 +13,22 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Document(collection = "transactions")
 public class Transactions {
-        @Id
-        private String id;
-        private String accountId; // reference to Account
-        private String userId; // reference to User
-        private String type; // CREDIT, DEBIT, TRANSFER, WITHDRAWAL
-        private Double amount;
-        private String category; // e.g., Shopping, Utilities
-        private LocalDate date;
-        private String description;
+
+    @Id
+    private String id;
+
+    private String accountId;  // reference to Account
+    private String userId;     // reference to User
+
+    // CREDIT or DEBIT
+    private TransactionType type;
+
+    private Double amount;
+
+    // ADD_MONEY, SEND_MONEY, PAY_BILL, etc.
+    private TransactionCategory category;
+    private BillType billType;  // ELECTRICITY, WATER, etc. (nullable)
+
+    private LocalDate date;
+    private String description;
 }

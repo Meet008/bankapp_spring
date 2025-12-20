@@ -3,10 +3,14 @@ package com.bankapp.dashboard.controller;
 import com.bankapp.dashboard.dto.ApiResponse;
 import com.bankapp.dashboard.model.Accounts;
 import com.bankapp.dashboard.model.AccountType;
+import com.bankapp.dashboard.model.Users;
 import com.bankapp.dashboard.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,66 +22,56 @@ public class AccountController {
 
     private final AccountService accountService;
 
-    // Simple health check
-    @GetMapping("/health")
-    public ResponseEntity<ApiResponse<String>> health() {
-        ApiResponse<String> body = new ApiResponse<>("Accounts API is working!", "OK");
-        return ResponseEntity.ok(body);
-    }
+    // ===== ADMIN endpoints =====
 
-    // Get all accounts
+    // Get all accounts (system-wide)
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<Accounts>>> getAllAccounts() {
         List<Accounts> accounts = accountService.getAllAccounts();
-        String message = accounts.isEmpty() ? "No accounts found" : "Accounts fetched successfully";
+        String message = accounts.isEmpty()
+                ? "No accounts found"
+                : "Accounts fetched successfully";
         ApiResponse<List<Accounts>> body = new ApiResponse<>(message, accounts);
         return ResponseEntity.ok(body);
     }
 
     // Get single account by ID
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<Accounts>> getAccountById(@PathVariable String id) {
-        Accounts account = accountService.getById(id); // throw ResourceNotFoundException inside service if null
+        Accounts account = accountService.getById(id);
+        if (account == null) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>("Account not found", null));
+        }
         ApiResponse<Accounts> body = new ApiResponse<>("Account fetched successfully", account);
         return ResponseEntity.ok(body);
     }
 
-    // Get all accounts for a user
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<ApiResponse<List<Accounts>>> getAccountsByUser(@PathVariable String userId) {
-        List<Accounts> accounts = accountService.getByUserId(userId);
-        String message = accounts.isEmpty() ? "No accounts found for user" : "User accounts fetched successfully";
-        ApiResponse<List<Accounts>> body = new ApiResponse<>(message, accounts);
-        return ResponseEntity.ok(body);
+    // Get available account types for dropdowns
+    @GetMapping("/meta")
+    public ResponseEntity<ApiResponse<AccountType[]>> getAccountMeta() {
+        AccountType[] types = AccountType.values();
+        return ResponseEntity.ok(
+                new ApiResponse<>("Account types fetched successfully", types)
+        );
     }
+    // ===== CUSTOMER / ADMIN endpoints (current user) =====
 
-    // Get accounts for a user filtered by type
-    @GetMapping("/user/{userId}/type/{type}")
-    public ResponseEntity<ApiResponse<List<Accounts>>> getAccountsByUserAndType(
-            @PathVariable String userId,
-            @PathVariable AccountType type) {
+    // Get all accounts for the current logged-in user
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<List<Accounts>>> getMyAccounts() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Users currentUser = (Users) auth.getPrincipal();
 
-        List<Accounts> accounts = accountService.getByUserIdAndType(userId, type);
+        List<Accounts> accounts = accountService.getByUserId(currentUser.getId());
         String message = accounts.isEmpty()
-                ? "No accounts found for user with type " + type
-                : "User accounts of type " + type + " fetched successfully";
+                ? "No accounts found for current user"
+                : "Accounts for current user fetched successfully";
         ApiResponse<List<Accounts>> body = new ApiResponse<>(message, accounts);
         return ResponseEntity.ok(body);
     }
 
-    // Create a new account
-    @PostMapping
-    public ResponseEntity<ApiResponse<Accounts>> createAccount(@RequestBody Accounts account) {
-        Accounts created = accountService.createAccount(account);
-        ApiResponse<Accounts> body = new ApiResponse<>("Account created successfully", created);
-        return ResponseEntity.status(HttpStatus.CREATED).body(body);
-    }
-
-    // Delete an account by ID
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteAccount(@PathVariable String id) {
-        accountService.deleteById(id); // service throws ResourceNotFoundException if not present
-        ApiResponse<Void> body = new ApiResponse<>("Account deleted successfully", null);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(body);
-    }
 }
