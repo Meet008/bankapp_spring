@@ -15,7 +15,7 @@ public class Accounts {
     private String id;
     private String userId; // reference to User
     private String accountNumber;
-    private AccountType type; // e.g. SAVINGS, CHECKING, CREDIT
+    private AccountType type; // e.g. SAVINGS, CHEQUING, CREDIT
     private Double balance;
     private AccountStatus status; // ACTIVE, PENDING
 }

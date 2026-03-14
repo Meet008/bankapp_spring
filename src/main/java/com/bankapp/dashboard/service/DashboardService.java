@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -30,10 +31,16 @@ public class DashboardService {
                 .mapToDouble(a -> a.getBalance() != null ? a.getBalance() : 0.0)
                 .sum();
 
+        double chequing = accounts.stream()
+                .filter(a -> a.getType() == AccountType.CHEQUING)
+                .mapToDouble(a -> a.getBalance() != null ? a.getBalance() : 0.0)
+                .sum();
+
         double savings = accounts.stream()
                 .filter(a -> a.getType() == AccountType.SAVINGS)
                 .mapToDouble(a -> a.getBalance() != null ? a.getBalance() : 0.0)
                 .sum();
+
 
         // Expenses: sum of DEBIT transactions for current month
         LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
@@ -49,11 +56,13 @@ public class DashboardService {
                 .sum();
 
         // Recent transactions: latest 5 for this user
-        List<Transactions> recent = transactionRepository.findByUserId(userId).stream()
+        List<Transactions> recent = transactionRepository.findByUserIdOrderByIdDesc(userId).stream()
                 .sorted(Comparator.comparing(Transactions::getDate).reversed())
                 .limit(5)
                 .toList();
 
-        return new DashboardSummary(totalBalance, savings, expenses, recent);
+        List<Accounts> accountsList = new ArrayList<>(accountRepository.findByUserId(userId));
+
+        return new DashboardSummary(totalBalance, chequing, savings, expenses, accountsList, recent);
     }
 }

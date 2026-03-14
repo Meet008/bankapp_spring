@@ -41,14 +41,14 @@ public class DemoDataLoader implements CommandLineRunner {
         demoUser.setAvatarUrl("https://example.com/demo.png");
         demoUser.setRole(Role.CUSTOMER);
 
-        // This will also create one CHECKING + one SAVINGS + welcome transaction
+        // This will also create one CHEQUING + one SAVINGS + welcome transaction
         demoUser = userService.createUserWithDefaults(demoUser);
 
         String userId = demoUser.getId();
 
         // 2) Fetch the default accounts created for this user
         Accounts checking = accountRepository
-                .findByUserIdAndType(userId, AccountType.CHECKING)
+                .findByUserIdAndType(userId, AccountType.CHEQUING)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Default checking account not found"));

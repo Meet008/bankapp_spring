@@ -28,7 +28,7 @@ public class TransactionService {
             Double minAmount,
             Double maxAmount
     ) {
-        List<Transactions> all = transactionRepository.findByUserId(userId);
+        List<Transactions> all = transactionRepository.findByUserIdOrderByIdDesc(userId);
 
         return all.stream()
                 .filter(t -> date == null || date.equals(t.getDate()))

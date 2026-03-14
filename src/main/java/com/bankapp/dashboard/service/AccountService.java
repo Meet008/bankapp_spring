@@ -56,13 +56,13 @@ public class AccountService {
     // ===== default accounts for new CUSTOMER =====
 
     public void createDefaultAccountsForUser(String userId) {
-        // CHECKING
-        List<Accounts> existingChecking = accountRepository.findByUserIdAndType(userId, AccountType.CHECKING);
+        // CHEQUING
+        List<Accounts> existingChecking = accountRepository.findByUserIdAndType(userId, AccountType.CHEQUING);
         Accounts checking;
         if (existingChecking.isEmpty()) {
             checking = new Accounts();
             checking.setUserId(userId);
-            checking.setType(AccountType.CHECKING);
+            checking.setType(AccountType.CHEQUING);
             checking.setAccountNumber(generateAccountNumber());  // <-- add this
             checking.setBalance(25.00);
             checking.setStatus(AccountStatus.ACTIVE);

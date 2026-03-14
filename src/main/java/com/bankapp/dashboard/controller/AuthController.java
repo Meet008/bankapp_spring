@@ -27,11 +27,17 @@ public class AuthController {
 
     // ===== CUSTOMER REGISTRATION (always role CUSTOMER) =====
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserBasicDto>> register(@RequestBody Users request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@RequestBody Users request) {
         // Force CUSTOMER for self-registration, ignore any role from client
         request.setRole(Role.CUSTOMER);
 
         Users saved = userService.createUserWithDefaults(request);
+
+        String token = jwtService.generateToken(
+                saved.getId(),
+                saved.getEmail(),
+                saved.getRole().name()
+        );
 
         UserBasicDto dto = new UserBasicDto(
                 saved.getId(),
@@ -41,9 +47,11 @@ public class AuthController {
                 saved.getAvatarUrl()
         );
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(new ApiResponse<>("Registration successful", dto));
+        AuthResponse authResponse = new AuthResponse(token, dto);
+        ApiResponse<AuthResponse> body =
+                new ApiResponse<>("Registration successful", authResponse);
+
+        return ResponseEntity.ok(body);
     }
 
     // ===== LOGIN =====
